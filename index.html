@@ -6,35 +6,24 @@
     <title>لعبة الثعبان</title>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { background: #111; display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: "Segoe UI", Tahoma, Arial, sans-serif; }
-      #game-wrap { display: flex; flex-direction: column; align-items: center; padding: 1rem; user-select: none; -webkit-user-select: none; }
-      #score-bar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 420px; margin-bottom: 10px; padding: 8px 16px; background: #1e1e1e; border: 1px solid #333; border-radius: 10px; color: #ccc; font-size: 14px; }
-      #score-val { font-size: 20px; font-weight: bold; color: #fff; }
-      #canvas-wrap { position: relative; border: 1px solid #333; border-radius: 12px; overflow: hidden; touch-action: none; }
-      canvas { display: block; }
-      #overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.7); border-radius: 12px; }
-      #overlay h2 { color: #fff; font-size: 24px; margin-bottom: 8px; }
-      #overlay p { color: rgba(255, 255, 255, 0.8); font-size: 15px; margin-bottom: 20px; text-align: center; padding: 0 16px; }
-      #start-btn { padding: 12px 32px; border-radius: 10px; background: #4ade80; border: none; font-size: 16px; font-weight: bold; cursor: pointer; color: #111; }
-      #dpad { display: grid; grid-template-columns: 52px 52px 52px; grid-template-rows: 52px 52px 52px; gap: 5px; margin-top: 16px; }
-      .dpad-btn { display: flex; align-items: center; justify-content: center; background: #1e1e1e; border: 1px solid #444; border-radius: 10px; font-size: 22px; cursor: pointer; color: #fff; -webkit-tap-highlight-color: transparent; }
-      .dpad-btn:active { background: #2a2a2a; transform: scale(0.93); }
-      .dpad-empty { background: transparent; border: none; }
-      #speed-bar { font-size: 12px; color: #666; margin-top: 8px; text-align: center; }
+      body { background: #111; display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: sans-serif; overflow: hidden; }
+      #game-wrap { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 500px; padding: 10px; }
+      #canvas-wrap { position: relative; border: 2px solid #444; border-radius: 15px; overflow: hidden; touch-action: none; width: 100%; }
+      canvas { display: block; width: 100%; height: auto; }
+      #overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); }
+      #ol-title { color: #fff; margin-bottom: 15px; font-size: 24px; }
+      #start-btn { padding: 15px 40px; border-radius: 20px; background: #4ade80; border: none; font-size: 18px; font-weight: bold; cursor: pointer; }
+      #dpad { display: grid; grid-template-columns: 70px 70px 70px; grid-template-rows: 70px 70px 70px; gap: 10px; margin-top: 20px; }
+      .dpad-btn { display: flex; align-items: center; justify-content: center; background: #222; border: 1px solid #444; border-radius: 15px; font-size: 30px; color: #fff; }
     </style>
   </head>
   <body>
     <div id="game-wrap">
-      <div id="score-bar">
-        <span>النقاط</span>
-        <span id="score-val">0</span>
-        <span id="speed-lbl">سرعة: 1</span>
-      </div>
+      <div id="score-bar" style="color:white; margin-bottom:10px;">النقاط: <span id="score-val">0</span></div>
       <div id="canvas-wrap">
         <canvas id="gc"></canvas>
         <div id="overlay">
           <h2 id="ol-title">🐍 لعبة الثعبان</h2>
-          <p id="ol-msg">استخدم الأسهم أو D-Pad للتحكم<br />أو اسحب على الشاشة</p>
           <button id="start-btn">ابدأ اللعبة</button>
         </div>
       </div>
@@ -49,126 +38,90 @@
         <div class="dpad-btn" id="btn-down">▼</div>
         <div class="dpad-empty"></div>
       </div>
-      <div id="speed-bar">كل ما الثعبان ياكل، كل ما السرعة تزيد!</div>
     </div>
 
     <script>
-      const CELL = 20;
-      const COLS = 15, ROWS = 15; // تم تصغير الرقعة لـ 15
+      const CELL = 30; // حجم الزوم
+      const COLS = 15, ROWS = 15; // رقعة صغيرة
       const W = COLS * CELL, H = ROWS * CELL;
 
       const canvas = document.getElementById("gc");
       canvas.width = W; canvas.height = H;
       const ctx = canvas.getContext("2d");
-      document.getElementById("canvas-wrap").style.width = W + "px";
-
-      const overlay = document.getElementById("overlay"), olTitle = document.getElementById("ol-title"), 
-            olMsg = document.getElementById("ol-msg"), startBtn = document.getElementById("start-btn"), 
-            scoreVal = document.getElementById("score-val"), speedLbl = document.getElementById("speed-lbl");
 
       let snake, dir, nextDir, food, score, running, interval, level;
       let headImg = new Image(), foodImg = new Image();
-      let imgsLoaded = 0;
-
-      headImg.onload = () => imgsLoaded++;
-      headImg.onerror = () => { headImg._failed = true; imgsLoaded++; };
-      headImg.src = "ثعبان.png";
-      foodImg.onload = () => imgsLoaded++;
-      foodImg.onerror = () => { foodImg._failed = true; imgsLoaded++; };
-      foodImg.src = "اكل.png";
+      headImg.src = "ثعبان.png"; foodImg.src = "اكل.png";
 
       function initGame() {
         snake = [{ x: 7, y: 7 }, { x: 6, y: 7 }, { x: 5, y: 7 }];
         dir = { x: 1, y: 0 }; nextDir = { x: 1, y: 0 };
-        score = 0; level = 1; scoreVal.textContent = 0; speedLbl.textContent = "سرعة: 1";
+        score = 0; level = 1;
+        document.getElementById("score-val").textContent = 0;
         placeFood();
       }
 
-      function placeFood() {
-        let pos;
-        do { pos = { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS) }; } 
-        while (snake.some((s) => s.x === pos.x && s.y === pos.y));
-        food = pos;
-      }
-
-      function getSpeed() { return Math.max(50, 200 - (level - 1) * 25); } // سرعة أعلى
+      function placeFood() { food = { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS) }; }
+      function getSpeed() { return Math.max(50, 180 - (level - 1) * 20); }
 
       function startGame() {
-        initGame(); overlay.style.display = "none"; startBtn.textContent = "العب تاني";
-        running = true; clearInterval(interval); interval = setInterval(tick, getSpeed());
+        initGame();
+        document.getElementById("overlay").style.display = "none";
+        running = true;
+        clearInterval(interval);
+        interval = setInterval(tick, getSpeed());
+      }
+
+      function gameOver() {
+        clearInterval(interval);
+        running = false;
+        document.getElementById("ol-title").textContent = "خسرت يا جعبز! 😂";
+        document.getElementById("start-btn").textContent = "العب تاني";
+        document.getElementById("overlay").style.display = "flex";
       }
 
       function tick() {
         dir = { ...nextDir };
         const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
-        if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS || snake.some((s) => s.x === head.x && s.y === head.y)) { gameOver(); return; }
+        if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS || snake.some(s => s.x === head.x && s.y === head.y)) {
+           gameOver(); return;
+        }
         snake.unshift(head);
         if (head.x === food.x && head.y === food.y) {
-          score += 10; level = Math.floor(score / 50) + 1;
-          scoreVal.textContent = score; speedLbl.textContent = "سرعة: " + level;
-          placeFood(); clearInterval(interval); interval = setInterval(tick, getSpeed());
+           score += 10; level = Math.floor(score / 50) + 1;
+           document.getElementById("score-val").textContent = score;
+           placeFood();
         } else { snake.pop(); }
         draw();
       }
 
       function draw() {
-        ctx.clearRect(0, 0, W, H);
-        ctx.fillStyle = "#0d1f0d"; ctx.fillRect(0, 0, W, H);
-        ctx.strokeStyle = "#162916"; ctx.lineWidth = 0.5;
-        for (let i = 0; i < COLS; i++) for (let j = 0; j < ROWS; j++) ctx.strokeRect(i * CELL, j * CELL, CELL, CELL);
+        ctx.fillStyle = "#111"; ctx.fillRect(0, 0, W, H);
+        
+        // رسم الرأس
+        const head = snake[0];
+        ctx.save();
+        ctx.translate(head.x * CELL + CELL/2, head.y * CELL + CELL/2);
+        const angle = dir.x === 1 ? 0 : dir.x === -1 ? Math.PI : dir.y === 1 ? Math.PI/2 : -Math.PI/2;
+        ctx.rotate(angle);
+        ctx.drawImage(headImg, -CELL/2, -CELL/2, CELL, CELL);
+        ctx.restore();
 
-        snake.forEach((s, i) => {
-          if (i === 0) {
-            const size = CELL + 8; // تكبير الرأس
-            if (!headImg._failed && headImg.complete && headImg.naturalWidth > 0) {
-              ctx.save(); ctx.translate(s.x * CELL + CELL / 2, s.y * CELL + CELL / 2);
-              const angle = dir.x === 1 ? 0 : dir.x === -1 ? Math.PI : dir.y === 1 ? Math.PI / 2 : -Math.PI / 2;
-              ctx.rotate(angle); ctx.drawImage(headImg, -size / 2, -size / 2, size, size);
-              ctx.restore();
-            } else { ctx.fillStyle = "#4ade80"; ctx.fillRect(s.x * CELL - 2, s.y * CELL - 2, size, size); }
-          } else {
-            const t = 1 - i / snake.length;
-            ctx.fillStyle = `hsl(${130 + i * 2},${70 - i}%,${35 + t * 15}%)`;
-            ctx.fillRect(s.x * CELL + 2, s.y * CELL + 2, CELL - 4, CELL - 4);
-          }
-        });
-
-        const fSize = CELL + 6; // تكبير الأكل
-        if (!foodImg._failed && foodImg.complete && foodImg.naturalWidth > 0) {
-          ctx.drawImage(foodImg, food.x * CELL - 3, food.y * CELL - 3, fSize, fSize);
-        } else {
-          ctx.fillStyle = "#f97316"; ctx.beginPath();
-          ctx.arc(food.x * CELL + CELL / 2, food.y * CELL + CELL / 2, fSize / 2 - 2, 0, Math.PI * 2);
-          ctx.fill();
+        // رسم الجسم
+        for(let i=1; i<snake.length; i++){
+            ctx.fillStyle = "#22c55e";
+            ctx.fillRect(snake[i].x * CELL + 2, snake[i].y * CELL + 2, CELL - 4, CELL - 4);
         }
+        
+        // رسم الأكل
+        ctx.drawImage(foodImg, food.x * CELL, food.y * CELL, CELL, CELL);
       }
 
-      function gameOver() { clearInterval(interval); running = false; olTitle.textContent = "خسرت يا جعبز! 😂"; olMsg.textContent = "نقاطك: " + score + "\nحاول تاني!"; overlay.style.display = "flex"; }
-
-      startBtn.addEventListener("click", startGame);
-      document.addEventListener("keydown", (e) => {
-        if (!running) { if (e.key === "Enter") startGame(); return; }
-        if (e.key === "ArrowUp" && dir.y !== 1) nextDir = { x: 0, y: -1 };
-        if (e.key === "ArrowDown" && dir.y !== -1) nextDir = { x: 0, y: 1 };
-        if (e.key === "ArrowLeft" && dir.x !== 1) nextDir = { x: -1, y: 0 };
-        if (e.key === "ArrowRight" && dir.x !== -1) nextDir = { x: 1, y: 0 };
-      });
-      document.getElementById("btn-up").addEventListener("click", () => { if (running && dir.y !== 1) nextDir = { x: 0, y: -1 }; });
-      document.getElementById("btn-down").addEventListener("click", () => { if (running && dir.y !== -1) nextDir = { x: 0, y: 1 }; });
-      document.getElementById("btn-left").addEventListener("click", () => { if (running && dir.x !== 1) nextDir = { x: -1, y: 0 }; });
-      document.getElementById("btn-right").addEventListener("click", () => { if (running && dir.x !== -1) nextDir = { x: 1, y: 0 }; });
-
-      let touchStartX, touchStartY;
-      canvas.addEventListener("touchstart", (e) => { touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; e.preventDefault(); }, { passive: false });
-      canvas.addEventListener("touchend", (e) => {
-        if (!running) return;
-        const dx = e.changedTouches[0].clientX - touchStartX;
-        const dy = e.changedTouches[0].clientY - touchStartY;
-        if (Math.abs(dx) > Math.abs(dy)) { if (dx > 20 && dir.x !== -1) nextDir = { x: 1, y: 0 }; else if (dx < -20 && dir.x !== 1) nextDir = { x: -1, y: 0 }; }
-        else { if (dy > 20 && dir.y !== -1) nextDir = { x: 0, y: 1 }; else if (dy < -20 && dir.y !== 1) nextDir = { x: 0, y: -1 }; }
-        e.preventDefault();
-      }, { passive: false });
-      draw();
+      document.getElementById("start-btn").onclick = startGame;
+      document.getElementById("btn-up").onclick = () => { if(dir.y !== 1) nextDir = {x:0, y:-1}; };
+      document.getElementById("btn-down").onclick = () => { if(dir.y !== -1) nextDir = {x:0, y:1}; };
+      document.getElementById("btn-left").onclick = () => { if(dir.x !== 1) nextDir = {x:-1, y:0}; };
+      document.getElementById("btn-right").onclick = () => { if(dir.x !== -1) nextDir = {x:1, y:0}; };
     </script>
   </body>
 </html>
